@@ -13,6 +13,10 @@ tuist edit
 
 # Basic Configuration, Project.swift
 
+- You have to manually create config files according to your configuration.
+  - Debug.xcconfig
+  - Release.xcconfig
+
 ```swift
 import ProjectDescription
 
