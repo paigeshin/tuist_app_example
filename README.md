@@ -26,11 +26,14 @@ private let bundleVersion: String = "1"
 private let iOSTargetVersion: String = "16.0"
 
 private let basePath: String = "Targets/tuist-app"
+private let swiftPackagePath: String = "SwiftPackages"
 private let appName: String = "Tuist-App"
 
 let project = Project(
     name: appName,
-    packages: [],
+    packages: [
+        .package(path: "\(swiftPackagePath)/Onboarding"), // add new modules with SPM
+    ],
     settings: Settings.settings(configurations: makeConfiguration()),
     targets: [
         Target(
@@ -42,10 +45,14 @@ let project = Project(
             infoPlist: makeInfoPlist(),
             sources: ["\(basePath)/Sources/**"],
             resources: "\(basePath)/Resources/**",
+            dependencies: [
+                .package(product: "Onboarding"), // add dependency (for modules)
+            ],
             settings: baseSettings()
-        )
+        ),
     ],
-    additionalFiles: ["README.md"])
+    additionalFiles: ["README.md"]
+)
 
 /// Create extneded plist for iOS
 /// - Returns: InfoPlist
@@ -58,32 +65,155 @@ private func makeInfoPlist(merging other: [String: InfoPlist.Value] = [:]) -> In
         ],
         "CFBundleShortVersionString": "\(version)",
         "CFBundleVersion": "\(bundleVersion)",
-        "CFBundleDisplayName": "\(appName)"
+        "CFBundleDisplayName": "$(APP_DISPLAY_NAME)", // xcconfig.
     ]
-    
+
     other.forEach { (key: String, value: InfoPlist.Value) in
         extendedPlist[key] = value
     }
-    
+
     return InfoPlist.extendingDefault(with: extendedPlist)
 }
 
 /// Create dev and release configuration
 /// - Returns: Configuration Tuple
 private func makeConfiguration() -> [Configuration] {
-    let debug: Configuration = Configuration.debug(name: "Debug", xcconfig: "Configs/Debug.xcconfig")
-    let release: Configuration = Configuration.debug(name: "Release", xcconfig: "Configs/Release.xcconfig")
+    let debug = Configuration.debug(name: "Debug", xcconfig: "Configs/Debug.xcconfig")
+    let release = Configuration.debug(name: "Release", xcconfig: "Configs/Release.xcconfig")
     return [debug, release]
 }
 
 private func baseSettings() -> Settings {
-    var settings = SettingsDictionary()
+    let msForWarning = 5
+    let settings = SettingsDictionary().otherSwiftFlags(
+        "-Xfrontend -warn-long-expression-type-checking=\(msForWarning)",
+        "-Xfrontend -warn-long-function-bodies=\(msForWarning)"
+    )
     return Settings.settings(
         base: settings,
         configurations: [],
         defaultSettings: .recommended
     )
 }
+```
 
+# Onboarding SPM
+
+```swift
+// swift-tools-version: 5.8
+// The swift-tools-version declares the minimum version of Swift required to build this package.
+
+import PackageDescription
+
+let package = Package(
+    name: "Onboarding",
+    defaultLocalization: "en",
+    platforms: [.iOS(.v16)],
+    products: [
+        // Products define the executables and libraries a package produces, and make them visible to other packages.
+        .library(
+            name: "Onboarding",
+            targets: ["OnboardingUI"]
+        ),
+    ],
+    dependencies: [
+        .package(name: "UIComponents", path: "../UIComponents"),
+        .package(url: "https://github.com/realm/SwiftLint", exact: .init(0, 51, 0)),
+        // Dependencies declare other packages that this package depends on.
+        // .package(url: /* package url */, from: "1.0.0"),
+    ],
+    targets: [
+        // Targets are the basic building blocks of a package. A target can define a module or a test suite.
+        // Targets can depend on other targets in this package, and on products in packages this package depends on.
+        .target(
+            name: "OnboardingUI",
+            dependencies: [
+                "UIComponents",
+                "OnboardingDomain"
+            ],
+            resources: [
+                .process("Resources/LottieFiles/coach.json"),
+            ],
+            plugins: [
+//                .plugin(name: "SwiftLintPlugin", package: "SwiftLint")
+            ]
+        ),
+        .target(
+            name: "OnboardingData",
+            dependencies: [],
+            plugins: [
+//                .plugin(name: "SwiftLintPlugin", package: "SwiftLint")
+            ]
+        ),
+        .target(
+            name: "OnboardingDomain",
+            dependencies: [
+                "OnboardingData"
+            ],
+            plugins: [
+//                .plugin(name: "SwiftLintPlugin", package: "SwiftLint")
+            ]
+        ),
+        .testTarget(
+            name: "OnboardingUITests",
+            dependencies: ["OnboardingUI"]
+        ),
+        .testTarget(
+            name: "OnboardingDataTests",
+            dependencies: [],
+            plugins: [
+                .plugin(name: "SwiftLintPlugin", package: "SwiftLint")
+            ]
+        ),
+        .testTarget(
+            name: "OnboardingDomainTests",
+            dependencies: [],
+            plugins: [
+                .plugin(name: "SwiftLintPlugin", package: "SwiftLint")
+            ]
+        ),
+    ]
+)
+
+```
+
+# UIComponents SPM
+
+```swift
+// swift-tools-version: 5.8
+// The swift-tools-version declares the minimum version of Swift required to build this package.
+
+import PackageDescription
+
+let package = Package(
+    name: "UIComponents",
+    platforms: [.iOS(.v16)],
+    products: [
+        // Products define the executables and libraries a package produces, and make them visible to other packages.
+        .library(
+            name: "UIComponents",
+            targets: ["UIComponents"]
+        ),
+    ],
+    dependencies: [
+        // Dependencies declare other packages that this package depends on.
+        // .package(url: /* package url */, from: "1.0.0"),
+        .package(url: "https://github.com/airbnb/lottie-spm.git", exact: "4.1.3"),
+    ],
+    targets: [
+        // Targets are the basic building blocks of a package. A target can define a module or a test suite.
+        // Targets can depend on other targets in this package, and on products in packages this package depends on.
+        .target(
+            name: "UIComponents",
+            dependencies: [
+                .product(name: "Lottie", package: "lottie-spm"),
+            ]
+        ),
+        .testTarget(
+            name: "UIComponentsTests",
+            dependencies: ["UIComponents"]
+        ),
+    ]
+)
 
 ```
